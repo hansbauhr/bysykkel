@@ -2,6 +2,8 @@ package no.hansbauhr.bysykkel;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 import javax.inject.Singleton;
 import javax.servlet.http.HttpServletRequest;
@@ -12,6 +14,7 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.StatusType;
 
 import com.google.gson.Gson;
 
@@ -24,15 +27,18 @@ import io.swagger.annotations.SwaggerDefinition;
 
 @Singleton
 @Path("/")
-@Api(tags = "status", value = "/")
+@Api(tags = "Endepunkter", value = "/")
 @SwaggerDefinition(
   info = @Info(
       title = "status", 
       version = "V${project.version}", 
-      description = "Bysykkel status"),
+      description = "Finn en ledig bysykkel!"),
   schemes = {SwaggerDefinition.Scheme.HTTP, SwaggerDefinition.Scheme.HTTPS})
 
 public class OsloBysykkel {
+  private static final String STATIONS = "/stations";
+  String apiUrlOsloBysykkel = System.getenv("API_URL_OSLO_BYSYKKEL");
+  String apiNokkel = System.getenv("API_NOKKEL");
 
   @Context
   public HttpServletRequest servletRequest;
@@ -65,18 +71,36 @@ public class OsloBysykkel {
   @Path("/ledigsykkel/{stativ}")
   @Produces(MediaType.APPLICATION_JSON)
   @ApiOperation(
-      value = "stativ",
+      value = "Sjekk om det fins ledige bysykler på en gitt lokasjon",
       notes = "Finner antall ledige sykler på stativet",
       response = Response.class, 
       hidden = false)
   @ApiResponses(
       value = {@ApiResponse(
           code = 200, 
-          message = "Antall ledige sykler på stativet")})
-  public Response ledigSykkel(@PathParam ("stativ") String stativ) {
-    System.out.println(String.format("Henter informasjonfra stativ %s", stativ));
-    return Response.ok().entity("{}").build();
+          message = "Antall ledige sykler på stativet",
+          response = Stations.class)
+      })
+  public Response ledigSykkel(@PathParam ("stativ") final String stativ) {
+    Response response = stativ();
+    Stations stations = ((BysyklerOslo)response.getEntity()).stations().stream().filter(s->s.title().equalsIgnoreCase(stativ)).collect(Collectors.toList()).get(0);
+    
+    BysykkelKlient tilkobling = BysykkelKlient.nyTilkobling();
+    String targetUri = apiUrlOsloBysykkel + STATIONS + "/availability";
+    System.out.println(targetUri);
+    tilkobling.targetUri(targetUri);
+    tilkobling.runRequest(MediaType.APPLICATION_JSON, MediaType.APPLICATION_JSON, apiNokkel);
+    StatusType statusInfo = tilkobling.getResponse().getStatusInfo();
+    System.out.println(statusInfo.getStatusCode() + " " + statusInfo.getReasonPhrase());
+    
+    String entity = tilkobling.getResponse().readEntity(String.class);
+    BysyklerOslo bysyklerOslo = new Gson().fromJson(entity, BysyklerOslo.class);
+    Optional<Stations> findFirst = bysyklerOslo.stations().stream().filter(s->s.id().intValue() == stations.id().intValue()).findFirst();
+    findFirst.get().title(stations.title());
+    findFirst.get().subtitle(stations.subtitle());
+    return Response.ok().entity(findFirst.get()).build();
   }
+  
   
   @GET
   @Path("/stativ")
@@ -87,18 +111,17 @@ public class OsloBysykkel {
       response = Response.class, 
       hidden = false)
   @ApiResponses(
-      value = {@ApiResponse(code = 200, message = "Sykkelstativer", response = Stativer.class)})
+      value = {@ApiResponse(code = 200, message = "Sykkelstativer", response = BysyklerOslo.class)})
   public Response stativ() {
-    String clientId = "";
     BysykkelKlient tilkobling = BysykkelKlient.nyTilkobling();
-    tilkobling.targetUri("https://oslobysykkel.no/api/v1/stations");
-    tilkobling.runRequest(MediaType.APPLICATION_JSON, MediaType.APPLICATION_JSON, clientId);
-    System.out.println(tilkobling.getResponse().getStatusInfo());
-    String entity = tilkobling.getResponse().readEntity(String.class);
-    System.out.println(entity);
-    Stativer fromJson = new Gson().fromJson(entity, Stativer.class);
-    System.out.println(fromJson.stations().get(0).title());
-    return Response.ok().entity(fromJson).build();
+    String targetUri = apiUrlOsloBysykkel + STATIONS;
+    System.out.println(targetUri);
+    tilkobling.targetUri(targetUri);
+    tilkobling.runRequest(MediaType.APPLICATION_JSON, MediaType.APPLICATION_JSON, apiNokkel);
+    StatusType statusInfo = tilkobling.getResponse().getStatusInfo();
+    System.out.println(statusInfo.getStatusCode() + " " + statusInfo.getReasonPhrase());
+    BysyklerOslo bysyklerOslo = new Gson().fromJson(tilkobling.getResponse().readEntity(String.class), BysyklerOslo.class);
+    return Response.ok().entity(bysyklerOslo).build();
   }
   
 }

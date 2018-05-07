@@ -25,4 +25,12 @@ public class Stations {
   public Availability availability() {
     return availability;
   }
+
+  public void title(String title) {
+    this.title = title;
+  }
+
+  public void subtitle(String subtitle) {
+    this.subtitle = subtitle;
+  }
 }
