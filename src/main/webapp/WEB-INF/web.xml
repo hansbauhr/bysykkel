@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app>
+	<display-name>status</display-name>
+	<description>
+	</description>
+
+	<!-- http://localhost:{port}/{context-path}/servlet/{classname} -->
+	<servlet>
+		<servlet-name>status</servlet-name>
+		<servlet-class>org.glassfish.jersey.servlet.ServletContainer</servlet-class>
+		<init-param>
+			<param-name>jersey.config.server.provider.packages</param-name>
+			<param-value>
+			  io.swagger.jaxrs.listing,
+			  no.hansbauhr.bysykkel
+			</param-value>
+		</init-param>
+		<load-on-startup>1</load-on-startup>
+	</servlet>
+
+	<servlet>
+		<servlet-name>Jersey2Config</servlet-name>
+		<servlet-class>io.swagger.jersey.config.JerseyJaxrsConfig
+		</servlet-class>
+		<init-param>
+			<param-name>api.version</param-name>
+			<param-value>1.0.0</param-value>
+		</init-param>
+		<init-param>
+			<param-name>swagger.api.title</param-name>
+			<param-value>Bysykkel status</param-value>
+		</init-param>
+		<init-param>
+			<param-name>swagger.api.basepath</param-name>
+			<param-value>/bysykkel</param-value>
+		</init-param>
+		<load-on-startup>2</load-on-startup>
+	</servlet>
+
+	<servlet-mapping>
+		<servlet-name>status</servlet-name>
+		<!-- http://localhost:8082/ws/no/vegvesen/lorem/ipsum/helsesjekk -->
+		<url-pattern>/*</url-pattern>
+		<!-- <url-pattern>/admin/*</url-pattern> -->
+	</servlet-mapping>
+
+	<servlet-mapping>
+		<servlet-name>default</servlet-name>
+		<!-- http://localhost:8082/ws/no/vegvesen/lorem/ipsum/swagger-ui-master/dist/index.html -->
+		<!-- http://localhost:8082/ws/no/vegvesen/lorem/ipsum/swagger.json -->
+		<url-pattern>/swagger-ui/*</url-pattern>
+	</servlet-mapping>
+
+</web-app>
